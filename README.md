@@ -27,8 +27,22 @@ This suggests that a linear regression model may be too simplistic for this comp
 2. Treats the relationship between pixel values and coordinates as purely linear
 3. Does not leverage spatial relationships in the image data
 
-Next steps will involve exploring more sophisticated models like convolutional neural networks (CNNs) that are better suited for image processing tasks.
+## Support Vector Machine (SVM) Approach
+Following the limitations of linear regression, a Support Vector Machine (SVM) model was implemented using Support Vector Regression (SVR). The SVM approach offers several advantages:
 
+1. Non-linear modeling through kernel functions (RBF kernel used)
+2. Better handling of high-dimensional feature spaces
+3. Improved generalization through margin optimization
+
+The SVM implementation includes:
+- Separate SVR models for each coordinate (x1, y1, x2, y2)
+- Model evaluation with MSE and MAE metrics
+- Bias-variance analysis to understand model behavior
+- Visualization of predictions vs ground truth
+
+Results show a slight decrease in MSE but a slightly higher MAE
+Overall this model is still finding it hard to predict the postion of the tennis racket across images.
+This could be due to the model not being able to capture the complex differences between images (camera angle, lighting, etc.)
 
 ## Contributors
 Contributed by Oscar Alberigo
