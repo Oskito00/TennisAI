@@ -1,3 +1,12 @@
 # Processed data files
 process_data/processed_data/tennis_data_features.csv
 process_data/processed_data/tennis_data_labels.csv
+
+# Model files
+linear_regression/tennis_model.joblib
+linear_regression/tennis_data.joblib
+SVM/tennis_svm_model.joblib
+SVM/tennis_data.joblib
+
+# Ensure all model files are ignored
+*.joblib

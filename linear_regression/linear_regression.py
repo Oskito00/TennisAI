@@ -1,3 +1,4 @@
+from pathlib import Path
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -7,8 +8,8 @@ import pandas as pd
 
 def train_model():
     # Load the data
-    features_df = pd.read_csv('tennis_data_features.csv')
-    labels = np.loadtxt('tennis_data_labels.csv', delimiter=',', skiprows=1)
+    features_df = pd.read_csv('process_data/processed_data/tennis_data_features.csv')
+    labels = np.loadtxt('process_data/processed_data/tennis_data_labels.csv', delimiter=',', skiprows=1)
     
     # Separate image info from features
     image_info = features_df[['filename', 'full_path']]
@@ -27,7 +28,7 @@ def train_model():
         pbar.update(100)
     
     # Save the model and test data
-    joblib.dump(model, 'tennis_model.joblib')
+    joblib.dump(model, 'linear_regression/tennis_model.joblib')
     joblib.dump({
         'X_test': X_test,
         'y_test': y_test,
@@ -38,8 +39,8 @@ def train_model():
 
 def load_model_and_data():
     # Load the saved model and test data
-    model = joblib.load('tennis_model.joblib')
-    test_data = joblib.load('test_data.joblib')
+    model = joblib.load('linear_regression/tennis_model.joblib')
+    test_data = joblib.load('linear_regression/test_data.joblib')
     return model, test_data['X_test'], test_data['y_test'], test_data['image_info']
 
 def predict(model, input_features):
@@ -108,7 +109,53 @@ def evaluate_model(model, X_test=None, y_test=None, image_info=None):
     
     return results
 
-def visualize_predictions(evaluation_results, images_dir, output_dir='visualize_predictions', num_samples=5):
+def analyze_bias_variance(model, X_test, y_test, image_info):
+    # Calculate bias and variance for each coordinate
+    """
+    Analyze bias and variance of the linear regression model predictions.
+    
+    Returns:
+        dict: Contains bias and variance metrics and analysis
+    """
+    predictions = model.predict(X_test)
+    
+    # Calculate errors for each point
+    errors = predictions - y_test
+    
+    # Calculate bias (average error) for each coordinate
+    bias = np.mean(errors, axis=0)
+    
+    # Calculate variance (spread of predictions) for each coordinate
+    variance = np.var(errors, axis=0)
+    
+    # Calculate average distance between predicted and true points
+    distances = np.sqrt(
+        (predictions[:, 0] - y_test[:, 0])**2 + 
+        (predictions[:, 1] - y_test[:, 1])**2
+    )
+    avg_distance = np.mean(distances)
+    std_distance = np.std(distances)
+    
+    results = {
+        'bias': {
+            'x1': bias[0],
+            'y1': bias[1], 
+            'x2': bias[2],
+            'y2': bias[3]
+        },
+        'variance': {
+            'x1': variance[0],
+            'y1': variance[1],
+            'x2': variance[2], 
+            'y2': variance[3]
+        },
+        'avg_distance': avg_distance,
+        'std_distance': std_distance
+    }
+    
+    return results
+
+def visualize_predictions(evaluation_results, images_dir, output_dir='linear_regression/visualize_predictions', num_samples=9):
     """
     Visualize model predictions by drawing points on the original images and saving to output directory
     
@@ -130,6 +177,7 @@ def visualize_predictions(evaluation_results, images_dir, output_dir='visualize_
     
     # Get random sample indices
     n_samples = len(evaluation_results['predictions'])
+    print(f"Number of samples: {n_samples}")
     sample_indices = random.sample(range(n_samples), min(num_samples, n_samples))
     
     for idx in sample_indices:
@@ -181,14 +229,14 @@ def visualize_predictions(evaluation_results, images_dir, output_dir='visualize_
         
         print(f"Saved visualization to {output_file}")
 
-
-
 if __name__ == "__main__":
     # Either train a new model
     # model, X_test, y_test, image_info = train_model()
-    
+    if not Path('linear_regression/tennis_model.joblib').exists():
+        model, X_test, y_test, image_info = train_model()
     # Or load an existing model
-    model, X_test, y_test, image_info = load_model_and_data()
+    else:
+        model, X_test, y_test, image_info = load_model_and_data()
     
     # Evaluate the model
     evaluation = evaluate_model(model, X_test, y_test, image_info)
@@ -206,4 +254,19 @@ if __name__ == "__main__":
         print(f"True coordinates: {evaluation['true_values'][i]}")
 
     images_dir = '/Users/oscaralberigo/Desktop/CDING/TennisAI/coco-annotator/datasets/tennis'
-    visualize_predictions(evaluation, images_dir, output_dir='visualize_predictions', num_samples=5)
+
+    # Visualize predictions
+    visualize_predictions(evaluation, images_dir, output_dir='linear_regression/visualize_predictions', num_samples=5)
+
+    # Analyze bias and variance
+    bias_variance = analyze_bias_variance(model, X_test, y_test, image_info)
+    
+    print("\nBias-Variance Analysis:")
+    print(f"Average distance from true points: {bias_variance['avg_distance']:.4f}")
+    print(f"Standard deviation of distances: {bias_variance['std_distance']:.4f}")
+    print("\nBias for each coordinate:")
+    for coord, value in bias_variance['bias'].items():
+        print(f"{coord}: {value:.4f}")
+    print("\nVariance for each coordinate:")
+    for coord, value in bias_variance['variance'].items():
+        print(f"{coord}: {value:.4f}")
