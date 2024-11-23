@@ -44,6 +44,21 @@ Results show a slight decrease in MSE but a slightly higher MAE
 Overall this model is still finding it hard to predict the postion of the tennis racket across images.
 This could be due to the model not being able to capture the complex differences between images (camera angle, lighting, etc.)
 
+## Cropping Images
+
+I decided to crop the images to the size of the racket to reduce the complexity of the problem.
+This is also a form of data augmentation.
+
+The linear regression model trained on the cropped images performed better than the model trained on the full images. But still not very good.
+
+I evaluated the model on the training set and got a MSE of 0.0000 and MAE of 0.0000. This basically means the model predictions were exactly the same as the ground truth. So the model was overfitting.
+
+Lets add some regularization to the model to see if that helps.
+
+## Limitations of simpler models on image data 
+
+
+
 ## Contributors
 Contributed by Oscar Alberigo
 

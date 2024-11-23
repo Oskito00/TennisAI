@@ -1,28 +1,31 @@
 from pathlib import Path
-from sklearn.linear_model import LinearRegression
+from matplotlib import pyplot as plt
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 import joblib
 import pandas as pd
 
-def train_model():
+
+def train_model(alpha=10000.0):
     # Load the data
-    features_df = pd.read_csv('process_data/processed_data/tennis_data_features.csv')
-    labels = np.loadtxt('process_data/processed_data/tennis_data_labels.csv', delimiter=',', skiprows=1)
+    features_df = pd.read_csv('process_data/cropped_data/cropped_features.csv')
+    labels = np.loadtxt('process_data/cropped_data/cropped_labels.csv', delimiter=',', skiprows=1)
     
     # Separate image info from features
     image_info = features_df[['filename', 'full_path']]
-    X = features_df.iloc[:, 2:].values  # Skip the first two columns (filename and full_path)
+    X = features_df.iloc[:, 2:].values
     
-    # Split the data into training and testing sets
+    # Split the data
     X_train, X_test, y_train, y_test, info_train, info_test = train_test_split(
         X, labels, image_info, test_size=0.1, random_state=42
     )
     
-    # Train the model
+    # Train the model with Ridge regression (alpha=10000)
     print("Training model...")
-    model = LinearRegression()
+    model = Ridge(alpha=alpha)
     with tqdm(total=100, desc="Training Progress") as pbar:
         model.fit(X_train, y_train)
         pbar.update(100)
@@ -32,16 +35,18 @@ def train_model():
     joblib.dump({
         'X_test': X_test,
         'y_test': y_test,
+        'X_train': X_train,
+        'y_train': y_train,
         'image_info': info_test.reset_index(drop=True)
-    }, 'test_data.joblib')
+    }, 'linear_regression/test_data.joblib')
     
-    return model, X_test, y_test, info_test
+    return model, X_test, y_test, X_train, y_train, info_test
 
 def load_model_and_data():
     # Load the saved model and test data
     model = joblib.load('linear_regression/tennis_model.joblib')
     test_data = joblib.load('linear_regression/test_data.joblib')
-    return model, test_data['X_test'], test_data['y_test'], test_data['image_info']
+    return model, test_data['X_test'], test_data['y_test'], test_data['X_train'], test_data['y_train'], test_data['image_info']
 
 def predict(model, input_features):
     # Make predictions using the model
@@ -155,113 +160,110 @@ def analyze_bias_variance(model, X_test, y_test, image_info):
     
     return results
 
-def visualize_predictions(evaluation_results, images_dir, output_dir='linear_regression/visualize_predictions', num_samples=9):
+def visualize_predictions(evaluation_results, images_dir, output_dir='predictions'):
     """
-    Visualize model predictions by drawing points on the original images and saving to output directory
+    Visualize predictions vs ground truth for all images in the evaluation results.
     
     Args:
-        evaluation_results: Dictionary containing model evaluation results
-        images_dir: Directory containing the original images
-        output_dir: Directory to save visualization results
-        num_samples: Number of random samples to visualize
+        evaluation_results (dict): Dictionary containing evaluation data
+        images_dir (str): Directory containing the original images
+        output_dir (str): Directory to save visualization results
     """
-    import matplotlib.pyplot as plt
-    from PIL import Image
-    import random
-    from pathlib import Path
-    import os
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    total_images = len(evaluation_results['image_info'])
+    print(f'Visualizing predictions for {total_images} images...')
     
-    # Create output directory if it doesn't exist
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    # Get random sample indices
-    n_samples = len(evaluation_results['predictions'])
-    print(f"Number of samples: {n_samples}")
-    sample_indices = random.sample(range(n_samples), min(num_samples, n_samples))
-    
-    for idx in sample_indices:
-        # Get image path and load image
-        image_path = Path(images_dir) / evaluation_results['image_info'].iloc[idx]['filename']
-        if not image_path.exists():
-            print(f"Image not found: {image_path}")
-            continue
+    for idx in range(total_images):
+        try:
+            # Load image
+            image_path = Path(images_dir) / evaluation_results['image_info'].iloc[idx]['filename']
+            image = Image.open(image_path)
+            width, height = image.size
             
-        # Load and convert image
-        img = Image.open(image_path).convert('RGB')
-        img_width, img_height = img.size
-        
-        # Create figure
-        plt.figure(figsize=(10, 10))
-        plt.imshow(img)
-        
-        # Get predictions and true values
-        pred = evaluation_results['predictions'][idx]
-        true = evaluation_results['true_values'][idx]
-        
-        # Scale coordinates back to image dimensions
-        pred_coords = [
-            (pred[0] * img_width, pred[1] * img_height),
-            (pred[2] * img_width, pred[3] * img_height)
-        ]
-        true_coords = [
-            (true[0] * img_width, true[1] * img_height),
-            (true[2] * img_width, true[3] * img_height)
-        ]
-        
-        # Plot predictions in red
-        plt.scatter([pred_coords[0][0], pred_coords[1][0]], 
-                   [pred_coords[0][1], pred_coords[1][1]], 
-                   c='red', s=100, label='Predicted')
-        
-        # Plot true values in green
-        plt.scatter([true_coords[0][0], true_coords[1][0]], 
-                   [true_coords[0][1], true_coords[1][1]], 
-                   c='green', s=100, label='True')
-        
-        plt.title(f"Image: {image_path.name}")
-        plt.legend()
-        
-        # Save figure to output directory
-        output_file = output_path / f"pred_{image_path.name}"
-        plt.savefig(output_file)
-        plt.close()
-        
-        print(f"Saved visualization to {output_file}")
+            # Create figure and axis
+            plt.figure(figsize=(10, 10))
+            plt.imshow(image)
+            
+            # Get coordinates and scale them to image dimensions
+            true_coords = evaluation_results['true_values'][idx]
+            pred_coords = evaluation_results['predictions'][idx]
+            
+            # Scale coordinates to image dimensions
+            true_coords_scaled = [
+                true_coords[0] * width,   # x1
+                true_coords[1] * height,  # y1
+                true_coords[2] * width,   # x2
+                true_coords[3] * height   # y2
+            ]
+            
+            pred_coords_scaled = [
+                pred_coords[0] * width,   # x1
+                pred_coords[1] * height,  # y1
+                pred_coords[2] * width,   # x2
+                pred_coords[3] * height   # y2
+            ]
+            
+            # Plot points
+            plt.scatter(true_coords_scaled[0], true_coords_scaled[1], c='g', marker='o', s=100, label='True Top')
+            plt.scatter(true_coords_scaled[2], true_coords_scaled[3], c='g', marker='s', s=100, label='True Bottom')
+            plt.scatter(pred_coords_scaled[0], pred_coords_scaled[1], c='r', marker='o', s=100, label='Predicted Top')
+            plt.scatter(pred_coords_scaled[2], pred_coords_scaled[3], c='r', marker='s', s=100, label='Predicted Bottom')
+            
+            # Draw lines
+            plt.plot([true_coords_scaled[0], true_coords_scaled[2]], 
+                    [true_coords_scaled[1], true_coords_scaled[3]], 'g-', label='True Racket')
+            plt.plot([pred_coords_scaled[0], pred_coords_scaled[2]], 
+                    [pred_coords_scaled[1], pred_coords_scaled[3]], 'r-', label='Predicted Racket')
+            
+            plt.legend()
+            plt.title(f'Image {idx}: {image_path.name}')
+            
+            # Calculate and display error
+            mse = np.mean((np.array(true_coords) - np.array(pred_coords)) ** 2)
+            plt.xlabel(f'MSE: {mse:.2f}')
+            
+            # Save and close
+            plt.savefig(output_dir / f'prediction_{idx}.png')
+            plt.close()
+            
+            if idx % 10 == 0:
+                print(f'Processed {idx}/{total_images} images')
+                
+        except Exception as e:
+            print(f'Error processing image {idx}: {str(e)}')
+            continue
+    
+    print('Visualization complete!')
 
 if __name__ == "__main__":
-    # Either train a new model
-    # model, X_test, y_test, image_info = train_model()
-    if not Path('linear_regression/tennis_model.joblib').exists():
-        model, X_test, y_test, image_info = train_model()
-    # Or load an existing model
-    else:
-        model, X_test, y_test, image_info = load_model_and_data()
+    # Try extreme regularization
     
-    # Evaluate the model
-    evaluation = evaluate_model(model, X_test, y_test, image_info)
-    
-    # Print metrics
-    print("\nModel Evaluation Metrics:")
-    print(f"Overall MSE: {evaluation['overall_mse']:.4f}")
-    print(f"Overall MAE: {evaluation['overall_mae']:.4f}")
-    
-    # Print some example predictions with their corresponding image info
-    print("\nSample Predictions:")
-    for i in range(min(5, len(evaluation['predictions']))):
-        print(f"\nImage: {evaluation['image_info'].iloc[i]['filename']}")
-        print(f"Predicted coordinates: {evaluation['predictions'][i]}")
-        print(f"True coordinates: {evaluation['true_values'][i]}")
+    model, X_test, y_test, X_train, y_train, info_test = train_model()
+        
+    # Evaluate on training set
+    train_evaluation = evaluate_model(model, X_train, y_train, info_test)
+    print(f"\nTraining Metrics:")
+    print(f"MSE: {train_evaluation['overall_mse']:.4f}")
+    print(f"MAE: {train_evaluation['overall_mae']:.4f}")
+        
+    # Evaluate on test set
+    test_evaluation = evaluate_model(model, X_test, y_test, info_test)
+    print(f"\nTest Metrics:")
+    print(f"MSE: {test_evaluation['overall_mse']:.4f}")
+    print(f"MAE: {test_evaluation['overall_mae']:.4f}")
 
-    images_dir = '/Users/oscaralberigo/Desktop/CDING/TennisAI/coco-annotator/datasets/tennis'
+    images_dir = '/Users/oscaralberigo/Desktop/CDING/TennisAI/coco-annotator/datasets/tennis_cropped'
 
     # Visualize predictions
-    visualize_predictions(evaluation, images_dir, output_dir='linear_regression/visualize_predictions', num_samples=5)
+    output_dir = f'linear_regression/visualize_predictions_test'
+    visualize_predictions(test_evaluation, images_dir, output_dir=output_dir)
 
     # Analyze bias and variance
-    bias_variance = analyze_bias_variance(model, X_test, y_test, image_info)
+    bias_variance = analyze_bias_variance(model, X_test, y_test, info_test)
     
-    print("\nBias-Variance Analysis:")
+    print(f"\nBias-Variance Analysis (test set):")
     print(f"Average distance from true points: {bias_variance['avg_distance']:.4f}")
     print(f"Standard deviation of distances: {bias_variance['std_distance']:.4f}")
     print("\nBias for each coordinate:")

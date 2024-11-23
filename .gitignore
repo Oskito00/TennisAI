@@ -1,6 +1,8 @@
 # Processed data files
 process_data/processed_data/tennis_data_features.csv
 process_data/processed_data/tennis_data_labels.csv
+process_data/cropped_data/cropped_features.csv
+process_data/cropped_data/cropped_labels.csv
 
 # Model files
 linear_regression/tennis_model.joblib
