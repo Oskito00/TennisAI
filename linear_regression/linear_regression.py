@@ -9,14 +9,18 @@ import joblib
 import pandas as pd
 
 
-def train_model(alpha=10000.0):
+def train_model(alpha=1.0, use_wavelets=True):
     # Load the data
-    features_df = pd.read_csv('process_data/cropped_data/cropped_features.csv')
+    if use_wavelets:
+        features_df = pd.read_csv('process_data/cropped_data/wavelet_features.csv')
+    else:
+        features_df = pd.read_csv('process_data/cropped_data/cropped_features.csv')
+    
     labels = np.loadtxt('process_data/cropped_data/cropped_labels.csv', delimiter=',', skiprows=1)
     
     # Separate image info from features
-    image_info = features_df[['filename', 'full_path']]
-    X = features_df.iloc[:, 2:].values
+    image_info = features_df.iloc[:, :2]  # Keep first two columns for image info
+    X = features_df.iloc[:, 2:].values    # Use all columns after the first two for features
     
     # Split the data
     X_train, X_test, y_train, y_test, info_train, info_test = train_test_split(
@@ -52,7 +56,7 @@ def predict(model, input_features):
     # Make predictions using the model
     return model.predict(input_features)
 
-def evaluate_model(model, X_test=None, y_test=None, image_info=None):
+def evaluate_model(model, X_test=None, y_test=None, image_info=None, use_wavelets=True):
     """
     Evaluate the model's performance using MSE and custom metrics for each coordinate.
     
@@ -67,10 +71,14 @@ def evaluate_model(model, X_test=None, y_test=None, image_info=None):
     """
     if X_test is None or y_test is None or image_info is None:
         # Load all data if not provided
-        features_df = pd.read_csv('tennis_data_features.csv')
-        X_test = features_df.iloc[:, 2:].values
-        y_test = np.loadtxt('tennis_data_labels.csv', delimiter=',', skiprows=1)
-        image_info = features_df[['filename', 'full_path']]
+        if use_wavelets:
+            features_df = pd.read_csv('process_data/cropped_data/wavelet_features.csv')
+        else:
+            features_df = pd.read_csv('process_data/cropped_data/cropped_features.csv')
+        
+        X_test = features_df.iloc[:, 1:].values
+        y_test = np.loadtxt('process_data/cropped_data/cropped_labels.csv', delimiter=',', skiprows=1)
+        image_info = features_df[['filename']]
     
     # Make predictions
     predictions = model.predict(X_test)
@@ -238,19 +246,24 @@ def visualize_predictions(evaluation_results, images_dir, output_dir='prediction
     print('Visualization complete!')
 
 if __name__ == "__main__":
-    # Try extreme regularization
+    # Train and evaluate model with wavelet features
     
-    model, X_test, y_test, X_train, y_train, info_test = train_model()
-        
+    use_wavelets = False  # Define the variable first
+    model, X_test, y_test, X_train, y_train, info_test = train_model(use_wavelets=use_wavelets)
+    if use_wavelets:
+        print("Training model with wavelet features...")
+    else:
+        print("Training model with cropped features...")
+    
     # Evaluate on training set
-    train_evaluation = evaluate_model(model, X_train, y_train, info_test)
-    print(f"\nTraining Metrics:")
+    train_evaluation = evaluate_model(model, X_train, y_train, info_test, use_wavelets=use_wavelets)
+    print(f"\nTraining Metrics (Wavelet Features):")
     print(f"MSE: {train_evaluation['overall_mse']:.4f}")
     print(f"MAE: {train_evaluation['overall_mae']:.4f}")
-        
+    
     # Evaluate on test set
-    test_evaluation = evaluate_model(model, X_test, y_test, info_test)
-    print(f"\nTest Metrics:")
+    test_evaluation = evaluate_model(model, X_test, y_test, info_test, use_wavelets=use_wavelets)
+    print(f"\nTest Metrics (Wavelet Features):")
     print(f"MSE: {test_evaluation['overall_mse']:.4f}")
     print(f"MAE: {test_evaluation['overall_mae']:.4f}")
 

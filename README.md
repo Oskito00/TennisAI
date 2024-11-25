@@ -8,12 +8,12 @@ This project aims to predict the top and bottom positions of a tennis racket in 
 - `notebooks/`: Experimentation notebooks.
 
 ## Usage
-Steps to reproduce the work:
-1. Annotate images using `coco-annotator`.
-2. Process annotations and save the data to a csv file like `tennis_data_features.csv` and `tennis_data_labels.csv`.
-3. Train the model with a chosen model like in `/linear_regression`.
-4. The predictions can be visualised in `/visualize_predictions`.
-5. Iterate and improve choices of model and parameters.
+Steps to run the project:
+1. Run the functions in `process_data/` to preprocess the data in the format you want.
+2. This will create a `features.csv` and `labels.csv` file.
+3. Choose a model (linear regression or SVM) and run the corresponding script in `linear_regression/` or `svm/`.
+4. This will train your model and print the results.
+5. Visualise the results in `visualize_predictions/`.
 
 ## Work So Far
 Initial experiments have focused on using a simple linear regression model to predict racket positions. The model was trained on annotated images with normalized coordinates for the top and bottom of each tennis racket.
@@ -57,7 +57,16 @@ Lets add some regularization to the model to see if that helps.
 
 ## Limitations of simpler models on image data 
 
+## Checking if I need more data
 
+To check if I need more data, I can train the model on subsets of the data 25%, 50%, 75% and 100% of the data and compare the performance. If performance is better with more data, then I know I need more data.
+
+![MSE vs Training Size](create_visualisation_data_MSE.png)
+
+Key observations:
+- Test MSE improves with more training data, but improvements diminish
+- Very low training MSE suggests overfitting
+- Gap between training and test MSE indicates high model variance
 
 ## Contributors
 Contributed by Oscar Alberigo
