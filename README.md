@@ -61,7 +61,7 @@ Lets add some regularization to the model to see if that helps.
 
 To check if I need more data, I can train the model on subsets of the data 25%, 50%, 75% and 100% of the data and compare the performance. If performance is better with more data, then I know I need more data.
 
-![MSE vs Training Size](create_visualisation_data_MSE.png)
+![MSE vs Training Size](mse_curve.png)
 
 Key observations:
 - Test MSE improves with more training data, but improvements diminish
